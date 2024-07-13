@@ -1,13 +1,12 @@
 # rpos
 
-Node.js based ONVIF Camera/NVT software that turns a Raspberry Pi, Windows, Linux or Mac computer into an ONVIF Camera and RTSP Server. It implements the key parts of Profile S and Profile T (http://www.onvif.org). It has special support for the Raspberry Pi Camera and Pimoroni Pan-Tilt HAT
+Node.js based ONVIF Camera/NVT software that turns a Raspberry Pi, Windows, Linux or Mac computer into an ONVIF Camera and RTSP Server. It implements the key parts of Profile S and Profile T (http://www.onvif.org). It has special support for the Raspberry Pi Camera and Pimoroni Pan-Tilt HAT.
 
 RPOS won an award in the 2018 ONVIF Open Source Challenge competition.
 
 ## History and Contributors
 
 The initial goal (by @BreeeZe) was to provide a ONVIF Media service which is compatible with Synology Surveillance Station to allow the Raspberry Pi to be used as a surveillance camera without the need for adding any custom camera files to your Synology NAS.
-First demo video @ https://youtu.be/ZcZbF4XOH7E
 
 This version uses a patched version of the "node-soap" v0.80 library (https://github.com/vpulim/node-soap/releases/tag/v0.8.0) located @ https://github.com/BreeeZe/node-soap
 
@@ -17,7 +16,7 @@ Oliver Schwaneberg added GStreamer gst-rtsp-server support as third RTSP Server 
 
 Casper Meijn added Relative PTZ support
 
-Johnny Wan added limited USB Camera support for GStreamer RTSP server.
+Johnny Wan added some USB Camera support for GStreamer RTSP server.
 
 If I've forgotten to put you in the list, please post an Issue Report and I can add you in.
 
@@ -30,14 +29,17 @@ If I've forgotten to put you in the list, please post an Issue Report and I can 
 - Can set other camera options through a web interface.
 - Discoverable (WS-Discovery) on Pi/Linux by CCTV Viewing Software
 - Works with ONVIF Device Manager (Windows) and ONVIF Device Tool (Linux)
-- Works with other CCTV Viewing Software that implements the ONVIF standard including Antrica Decoder, Avigilon Control Centre, Bosch BVMS, Milestone, ISpy (Opensource), BenSoft SecuritySpy (Mac), IndigoVision Control Centre
+- Works with other CCTV Viewing Software that implements the ONVIF standard including Antrica Decoder, Avigilon Control Centre, Bosch BVMS, Milestone, ISpy (Opensource), BenSoft SecuritySpy (Mac), IndigoVision Control Centre and Genetec Security Centre (add camera as ONVIF-BASIC mode)
 - Implements ONVIF Authentication
 - Implements Absolute, Relative and Continuous PTZ and controls the Pimononi Raspberry Pi Pan-Tilt HAT
-- Also converts ONVIF PTZ commands into Pelco D and Visca telemetry on a serial port (UART) for other Pan/Tilt platforms
+- Can also use the Waveshare Pan-Tilt HAT with a custom driver for the PWM chip used but be aware the servos in their kit do not fit so we recommend the Pimoroni model
+- Also converts ONVIF PTZ commands into Pelco D and Visca telemetry on a serial port (UART) for other Pan/Tilt platforms (ie a PTZ Proxy or PTZ Protocol Converter)
+- Can reference other RTSP servers, which in turn can pull in the video via RTSP, other ONVIF sources, Desktop Capture, MJPEG allowing RPOS to be a Video Stream Proxy
 - Implements Imaging service Brightness and Focus commands (for Profile T)
 - Implements Relay (digital output) function
 - Supports Unicast (UDP/TDP) and Multicast using mpromonet's RTSP server
 - Supports Unicast (UDP/TCP) RTSP using GStreamer
+- Works as a PTZ Proxy
 - Also runs on Mac, Windows and other Linux machines but you need to supply your own RTSP server. An example to use ffserver on the Mac is included.
 - USB cameras supported via the GStreamer RTSP server with limited parameters available. Tested with JPEG USB HD camera
 
@@ -59,21 +61,19 @@ Add ‘gpu_mem=128’ in /boot/bootconf.txt and reboot
 
 ### STEP 2 - INSTALL NODEJS AND NPM
 
-NOTE: Node.js Version 6.x and 8.x have been tested with RPOS. Only a small amount of testing has been done with Node v10.
-
-#### STEP 2.1.a - INSTALL NODE USING NVM
-
-You may choose to use [Node Version Manager (NVM)](https://github.com/nvm-sh/nvm) to install & use a specific version of Node & NPM, such as `nvm install 8` instead of the latest. Follow the instructions on NVM's github page to install & use.
-
-#### STEP 2.1.b - INSTALL NODE USING APT
-
-Pi and Linux users can install latest versions of Node and NPM together with this command:
-
+[This step was tested in Raspberry Pi OS from June 2021. Older Pis may need some manual steps]
+On the Pi you can install nodejs (ver10) and npm (5.8.0) with this command
 ```
-  sudo apt-get install npm
+sudo apt install nodejs npm
 ```
+Next we install 'n', a node version manager and install Node v12 and NPM v6
+```
+sudo npm install -g n
+sudo n install 12
+```
+Log out and log back in for the Path changes to take effect. You should now have Node v12 (check with node -v) and NPM v6 (check with npm -v)
 
-#### STEP 2.1.c - OTHER METHODS
+#### STEP 2.1.b - OTHER METHODS
 
 Windows and Mac users can install Node from the nodejs.org web site.
 
@@ -83,22 +83,6 @@ Older Raspbian users (eg those running Jessie) can install NodeJS and NPM with t
   curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
   sudo apt-get install nodejs
 ```
-
-#### STEP 2.2 - UPDATE NPM
-
-If using [`NVM`](https://github.com/nvm-sh/nvm) to manage your Node.js version, the following will update NPM to the latest supported on your version of Node.js:
-
-```
-nvm install-latest-npm
-```
-
-Otherwise you can use NPM to update itself with this command:
-
-```
-sudo npm install -g npm@latest
-```
-
-Note this seemed to fail first time and needed to be ran twice to get my onto NPM version 6.7.0
 
 ### STEP 3 - GET RPOS SOURCE, INSTALL DEPENDENCIES
 
@@ -112,18 +96,10 @@ npm install
 
 #### 4.1.a
 
-For NPM version 5.2 and up, use the `npx` command to run the 'gulp' script:
+Use the `npx` command to run the 'gulp' script: (works for NPM 5.2 and higher)
 
 ```
 npx gulp
-```
-
-#### 4.1.b
-
-For older versions of NPM without `npx`, run the gulp script directly:
-
-```
-./node_modules/gulp/bin/gulp.js
 ```
 
 ### STEP 5 - PICK YOUR RTSP SERVER
@@ -169,29 +145,27 @@ Installing the packages using apt saves a lot of time, but provides a rather old
 
 ##### 5.c.1a - INSTALL GSTREAMER USING APT:
 
-(For Raspberry PI camera)
+We will install lots of GStreamer Libraries and then the Python and GIR libraries (GIR allow other languages to access the GStreamer C API)
+If you only use USB cameras, some may not be needed but for simplicity I'll install them all here.
+
 ```
-sudo apt install git gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
- gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+sudo apt install git gstreamer1.0-plugins-base \
+ gstreamer1.0-plugins-bad  gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
  gstreamer1.0-tools libgstreamer1.0-dev libgstreamer1.0-0-dbg \
- libgstreamer1.0-0 gstreamer1.0-omx \
- libgstreamer-plugins-base1.0-dev gtk-doc-tools
+ libgstreamer1.0-0 libgstrtspserver-1.0.0 \
+ libgstreamer-plugins-base1.0-dev gtk-doc-tools \
+ gstreamer1.0-omx-rpi gstreamer1.0-omx
 ```
 
-(For USB camera, tested with Raspberry PI)
-The default pipeline takes MJPEG from USB camera, decode it to Raw using omxmjpegdec, then encode it to H.264 using omxh264enc
+You can check it is verson 1.14 with ```gst-launch-1.0 --version```
 
-Install GStreamer pipeline
-```
-sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-omx-rpi gstreamer1.0-omx
-```
-
-Install Python Binding and gst-rtsp-server
+Then install Python Binding, GIR Files (GObjectIntrospection Repository - makes APIs from C libraries)
 ```
 sudo apt-get install python-gi gir1.2-gst-plugins-base-1.0 gir1.2-gst-rtsp-server-1.0
 ```
 
 ##### 5.c.1b - INSTALL GST-RPICAMSRC FROM SOURCE
+Currently Raspberry Pi OS installs GStreamer 1.14 which does not include the 'rpicamsrc' module so we will build it from source.
 
 (starting in /rpos root directory)
 
@@ -210,23 +184,16 @@ Check successful plugin installation by executing
 ```
 gst-inspect-1.0 rpicamsrc
 ```
+Note: You do not need to load V4L2 modules when using rpicamsrc (option 3).
 
 ##### 5.c.2 - INSTALL GST-RTSP-SERVER FROM SOURCE
 
-Next, compile gst-rtsp-server v1.4.5 (newer versions require newer GStreamer libs than those installed by apt)
+No longer required. Raspberry Pi OS in June 2021 is shipping with GStreamer 1.14 and the Gst RTSP Server library is included
 
-```
-git clone git://anongit.freedesktop.org/gstreamer/gst-rtsp-server
-cd gst-rtsp-server
-git checkout 1.4.5
-./autogen.sh
-make
-sudo make install
-```
-
-Note: You do not need to load V4L2 modules when using rpicamsrc (option 3).
 
 ### STEP 6 - EDIT CONFIG
+Go back to the 'rpos' folder
+
 
 Rename or copy `rposConfig.sample-*.json` to `rposConfig.json`. (Choosing the appropriate sample to start with)
 
@@ -237,6 +204,24 @@ Rename or copy `rposConfig.sample-*.json` to `rposConfig.json`. (Choosing the ap
 - Enable multicast
 - Switch to the mpromonet or GStreamer RTSP servers
 - Hardcode an IP address in the ONVIF SOAP messages
+
+### STEP 6 - CONFIG DETAILS
+The Configuation is split into several sections
+#### IP Address and Login Permissions
+- Network Adapters - Used by RPOS to probe network interfaces to try and work out its own IP Address
+- IPAddress - This can be used to override the auto detected IP address found by probing the Network Adapters list
+- Service Port - This is the TCP Port that RPOS listens on for ONVIF Connections
+- Username - The username used to connect to RPOS with
+- Password - The Password used to connect to RPOS with
+#### Camera Source
+This section helps RPOS know where to get live video from
+- Camera Type - Used to help RPOS automatically configure itself. Valid optins are "picam", "usbcam", "filesrc", "testsrc".  'picam' will select the Raspberry Pi camera on the ribbon cable, 'usbcam' will select a USB camera, 'filesrc' will open a JPEG or PNG video file and 'testsrc' displays a bouncing ball with clock overlay
+- CameraDevice - Provides extra information to go with the Camera Type. For 'usbcam' use the Video4Linux address of the camera, eg /dev/video0.  For the 'filesrc' camera type, use the full path and filename of the jpeg or PNG file eg /home/pi/image.jpg
+#### RTSP Server
+This section helps RPOS know how to share the video via RTSP with viewers
+...
+...
+
 
 ### STEP 7 - RUN RPOS.JS
 

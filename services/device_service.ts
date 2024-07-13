@@ -1,4 +1,3 @@
-///<reference path="../typings/main.d.ts" />
 ///<reference path="../rpos.d.ts" />
 
 import fs = require("fs");
@@ -261,6 +260,17 @@ class DeviceService extends SoapService {
       return SetHostnameFromDHCPResponse;
     };
 
+    port.GetDNS = (args /*, cb, headers*/) => {
+      var GetDNSResponse = { 
+        DNSInformation : { 
+          FromDHCP : true,
+          Extension : { }
+        }
+      
+      };
+      return GetDNSResponse;
+    };
+
     port.GetScopes = (args) => {
       var GetScopesResponse = { Scopes: [] };
       GetScopesResponse.Scopes.push({
@@ -281,6 +291,14 @@ class DeviceService extends SoapService {
       return GetScopesResponse;
     };
 
+
+    port.GetDiscoveryMode = (args /*, cb, headers*/) => {
+      var GetDiscoveryModeResponse = { 
+        DiscoveryMode : true
+      };
+      return GetDiscoveryModeResponse;
+    };
+    
     port.GetServiceCapabilities = (args /*, cb, headers*/) => {
       var GetServiceCapabilitiesResponse = {
         Capabilities: {
@@ -345,9 +363,28 @@ class DeviceService extends SoapService {
     };
 
     port.GetNTP = (args /*, cb, headers*/) => {
-      var GetNTPResponse = {};
-      return GetNTPResponse;
-    };
+       var GetNTPResponse = { 
+          NTPInformation : { 
+            FromDHCP : false,
+            //NTPFromDHCP : [{ 
+            //  Type : { xs:string},
+            //  IPv4Address : { xs:token},
+            //  IPv6Address : { xs:token},
+            //  DNSname : { xs:token},
+            //  Extension : { }
+            //}],
+            NTPManual : [{ 
+              Type : "DNS",
+              //IPv4Address : { xs:token},
+              //IPv6Address : { xs:token},
+              DNSname : "pool.ntp.org",
+              Extension : { }
+            }],
+            Extension : { }
+           } 
+        };
+        return GetNTPResponse;
+      };
 
     port.SetNTP = (args /*, cb, headers*/) => {
       var SetNTPResponse = {};
@@ -402,6 +439,27 @@ class DeviceService extends SoapService {
         }]
       };
       return GetNetworkProtocolsResponse;
+    };
+
+    port.GetNetworkDefaultGateway = (args /*, cb, headers*/) => {
+      let GetNetworkDefaultGatewayResponse = {}
+        if (utils.isLinux) {
+        // Linux method for now. Need to include Windows and Mac
+        const spawn = require('child_process').spawnSync;
+
+        const child = spawn('bash', ['-c', 'ip route']).stdout.toString();
+        const gateway = child.match(/default via (.*?)\s/)[1]; // Look for text "default via " and then get everything up to the next Space or Tab
+        GetNetworkDefaultGatewayResponse = { 
+          NetworkGateway : { 
+            IPv4Address : [gateway], // FIXME. Need to ask the OS for this information
+          //IPv6Address : [{ xs:token}]
+          }
+        };
+      } else {
+        // TODO
+        // return empty result
+      }
+      return GetNetworkDefaultGatewayResponse;
     };
 
     port.GetRelayOutputs = (args /*, cb, headers*/) => {
